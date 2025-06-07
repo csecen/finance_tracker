@@ -245,6 +245,9 @@ Callbacks
 @app.callback(
     Output("investment_line_chart", "figure"),
     Output('investment_line_chart', 'style'),
+    Output('etrade', 'value'),
+    Output('retirement', 'value'),
+    Output('leidos', 'value'),
     State('etrade', 'value'),
     State('retirement', 'value'),
     State('leidos', 'value'),
@@ -257,16 +260,16 @@ def update_data(etrade, retirement, leidos, switch, n_clicks):
     if etrade or retirement or leidos:
         update_investment_data(data)
     path = os.path.join(DATA_PATH, 'investments.csv')
-    df = pd.read_csv(path)
 
-    if n_clicks:
+    if n_clicks and os.path.exists(path):
+        df = pd.read_csv(path)
         line_figure = line_chart(df,
                                 credit=False,
                                 switch=switch)
         
-        return line_figure, {}
+        return line_figure, {}, '', '', ''
     else:
-        return None, {'display': 'none'}
+        return None, {'display': 'none'}, '', '', ''
 
 
 @app.callback(
