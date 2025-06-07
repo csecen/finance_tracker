@@ -169,14 +169,20 @@ app.layout = dbc.Container(
                     'FINANCIAL TRACKER',
                     className='text-center text-primary p-2',
                 ),
+                html.H4(
+                    'TOTAL ASSETS',
+                    className='text-center text-primary p-2',
+                ),
+                html.Div(
+                    [
+                        dbc.Button('REFRESH', color='primary', outline=True, id='refresh'),
+                    ],
+                    className="d-grid gap-2 col-6 mx-auto",
+                ),
+                # dbc.Col(dbc.Button('REFRESH', color='primary', outline=True, id='refresh'), width='auto', align='center'),
                 html.Hr(),
             ])
         ),
-        # dbc.Row(
-        #     [
-        #         input_form,
-        #     ]
-        # ),
         dbc.Row(
             [
                 dbc.Col(
@@ -261,7 +267,7 @@ def update_data(etrade, retirement, leidos, switch, n_clicks):
         update_investment_data(data)
     path = os.path.join(DATA_PATH, 'investments.csv')
 
-    if n_clicks and os.path.exists(path):
+    if n_clicks or os.path.exists(path):
         df = pd.read_csv(path)
         line_figure = line_chart(df,
                                 credit=False,
