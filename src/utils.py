@@ -190,10 +190,18 @@ def get_income():
     return income
 
 
-def update_investment_data(etrade, retirement, leidos):
+def update_investment_data(input_data):
     investments_path = os.path.join(DATA_PATH, 'investments.csv')
 
+    current_time = datetime.now()
+    day = current_time.date()
+    cols = ['Date', 'Amount', 'Category']
+    data = [[day, v, k] for k, v in input_data.items() if v]
+    df = pd.DataFrame(data, columns=cols)
 
+    write_file(investments_path, df)
+
+    
     
 
 

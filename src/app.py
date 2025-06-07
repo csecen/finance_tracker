@@ -6,7 +6,7 @@ import pandas as pd
 import os
 import package_root
 from src.plotting import pie_chart, line_chart
-from src.utils import extract_credit_card_data, get_spending, get_totals, get_income, extract_bank_data
+from src.utils import extract_credit_card_data, get_spending, get_totals, get_income, extract_bank_data, update_investment_data
 
 
 app = Dash(
@@ -253,9 +253,20 @@ Callbacks
 )
 def update_data(etrade, retirement, leidos, switch, n_clicks):
 
-    update_investment_data(etrade, retirement, leidos)
+    data = {'etrade': etrade, 'retirement': retirement, 'leidos': leidos}
+    if etrade or retirement or leidos:
+        update_investment_data(data)
+    path = os.path.join(DATA_PATH, 'investments.csv')
+    df = pd.read_csv(path)
 
-    return None, {'display': 'none'}
+    if n_clicks:
+        line_figure = line_chart(df,
+                                credit=False,
+                                switch=switch)
+        
+        return line_figure, {}
+    else:
+        return None, {'display': 'none'}
 
 
 @app.callback(
