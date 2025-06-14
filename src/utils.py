@@ -71,15 +71,6 @@ def extract_credit_card_data():
     
         file = os.path.join(DATA_PATH, 'credit_card_data.csv')
         write_file(file, df)
-        # file = '../data/credit_card_data.csv'
-        # if os.path.exists(file):
-        #     existing_data = pd.read_csv(file)
-        #     existing_data['Date'] = pd.to_datetime(existing_data['Date'], format='%Y-%m-%d')
-        #     df = pd.concat([existing_data, df])
-        #     # TODO: Delete file
-
-        # # delete file
-        # df.to_csv(cc_csv, index=False)
         os.remove(cc_csv[0])
 
 
@@ -150,13 +141,7 @@ def extract_bank_data():
         parse_bank_csv(statement_csv[0], start_date, end_date)
 
         os.remove(statement_pdf[0])
-        os.remove(statement_csv[0]) 
-
-    # if len(statement_pdf) < 0 or len(statement_csv) < 0:
-    #     print('Error')
-    # else:
-    #     start_date, end_date = parse_bank_pdf(statement_pdf[0])
-    #     parse_bank_csv(statement_csv[0], start_date, end_date)
+        os.remove(statement_csv[0])
 
 
 ##################################################################################
@@ -182,15 +167,6 @@ def get_lookback_data(filename, n_months=None):
 
 
 def get_spending(cum_type, n_months=0):
-    # path = os.path.join(DATA_PATH, 'deductions.csv')
-    # df = pd.read_csv(path)
-    # df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
-
-    # year = df.iloc[-1]['Date'].year
-    # month = df.iloc[-1]['Date'].month
-
-    # subset, _ = date_parser(df, year=year, month=month)
-    print('n_months', n_months)
     rets = {'Rent': 0, 'Credit Card': 0, 'Misc': 0}
     subset = get_lookback_data('deductions.csv', n_months=n_months)
     if cum_type:
@@ -201,24 +177,12 @@ def get_spending(cum_type, n_months=0):
             except:
                 continue
     else:
-        # print('in else')
         categories = subset['Category'].unique().tolist()
         for k, _ in rets.items():
             if k in categories:
-            # try:
                 cat_subset = subset[subset['Category'] == k]
                 cat_totals_by_month = cat_subset.groupby(pd.Grouper(key='Date', freq='ME'))['Amount'].sum()
                 rets[k] = np.mean(cat_totals_by_month)
-            # except:
-            #     print()
-            #     continue
-
-        # group = subset.groupby(['Category'])['Amount'].mean()
-    # group = subset.groupby(['Category'])['Amount'].sum()
-    
-    
-
-    print(rets)
 
     return tuple(rets.values())
 
@@ -234,20 +198,7 @@ def get_totals(cum_type, n_months=0):
 
 
 def get_income(cum_type, n_months=0):
-    # path = os.path.join(DATA_PATH, 'additions.csv')
-    # df = pd.read_csv(path)
-    # df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
-
-    # year = df.iloc[-1]['Date'].year
-    # month = df.iloc[-1]['Date'].month
-
-    # subset, _ = date_parser(df, year=year, month=month)
-
     subset = get_lookback_data('additions.csv', n_months=n_months)
-    # subset
-    # subset = subset[subset['Category'] != 'Transfer']
-    # subset
-    # subset.groupby(['Date'])['Amount'].sum()
     if cum_type:
         group = subset.groupby(['Category'])['Amount'].sum()
         income = float(group['Paycheck'])

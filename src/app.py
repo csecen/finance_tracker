@@ -45,7 +45,6 @@ def get_bank_summary(summary_type, n_months):
     income = get_income(summary_type, n_months)
     saved = get_totals(summary_type, n_months)
     color = 'green' if saved >= 0 else 'red'
-    print(misc)
 
     summary_list = [
         html.H5([
@@ -328,15 +327,6 @@ def display_monthly_data(summary_type, n_months, refresh, submit):
     
     n_months = 0 if not n_months else n_months
     summary_list = get_bank_summary(summary_type, n_months)
-    # if 'refresh' in changed_id and n_months > 1:
-    #     n_months = n_months
-    # else:
-    #     n_months = None
-    # print()
-        # n_months = 1 if not n_months else n_months
-    # print(n_months)
-    # summary_list = get_bank_summary(summary_type)
-
 
     return summary_list, None
 
@@ -395,8 +385,6 @@ def update_data_display(etrade, retirement, leidos, cambridge, nasdaq, dow, snp,
     State('month', 'value'),
 )
 def update_pie(n_clicks, refresh, switch, data_switch, start_date, end_date, year, month):
-    # changed_id = [p['prop_id'] for p in callback_context.triggered][0]
-
     if n_clicks:
         if data_switch:
             df = credit_card_df
