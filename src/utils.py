@@ -222,11 +222,16 @@ def get_totals(cum_type, n_months=0):
     # get deposits for a 
     add_subset = get_lookback_data('additions.csv', n_months=n_months)
     add_subset = add_subset[add_subset['Category'] != 'Transfer']
-    total_adds = sum(add_subset['Amount'])
-
     ded_subset = get_lookback_data('deductions.csv', n_months=n_months)
-    total_deds = sum(ded_subset['Amount'])
-    return total_adds - total_deds
+
+    if cum_type:
+        cumm_adds = sum(add_subset['Amount'])
+        cumm_deds = sum(ded_subset['Amount'])
+    else:
+        cumm_adds = np.mean(add_subset.groupby(pd.Grouper(key='Date', freq='ME')).sum()['Amount'])
+        cumm_deds = np.mean(ded_subset.groupby(pd.Grouper(key='Date', freq='ME')).sum()['Amount'])
+    
+    return cumm_adds - cumm_deds
 
 
 def get_income(cum_type, n_months=0):
