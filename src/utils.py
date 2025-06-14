@@ -44,6 +44,10 @@ def date_parser(data: pd.DataFrame,
 
 
 def write_file(file, df):
+    '''
+    Check if the file being written to exists, if it does concatenate the old
+    data with the new data, then write the data to the file  
+    '''
     if os.path.exists(file):
         existing_data = pd.read_csv(file)
         existing_data['Date'] = pd.to_datetime(existing_data['Date'], format='%Y-%m-%d')
@@ -58,7 +62,6 @@ def extract_credit_card_data():
     cc_csv = glob.glob(f'{path}/*.csv')
 
     if len(cc_csv) > 0:
-
         df = pd.read_csv(cc_csv[0])
 
         # add grocery category
@@ -82,19 +85,24 @@ def parse_bank_pdf(pdf):
 
         content = page.extract_text()
 
+        # search for the start and end date of the statement period
         date_range = re.search(r'For the period (\d\d\/\d\d\/\d\d\d\d) to (\d\d\/\d\d\/\d\d\d\d)', content)
         if date_range:
             start_date = date_range.group(1)
             end_date = date_range.group(2)
 
+        # search for the balance summary for the statement period. This
+        # contains total value in the account, total added, and total
+        # deducted
         summary = re.search(r'Balance Summary[\S\s]*Ending\nbalance([\S\s]*)Average monthly', content)
         if summary:
             totals = summary.group(1).replace(',','').strip().split(' ')[1:]
-            totals = [end_date] + totals[-1:] + totals[:-1]
+            totals = [end_date] + totals[-1:] + totals[:-1]   # combine into list to be converted to df
 
             df = pd.DataFrame([totals], columns=['Date', 'Total', 'Added', 'Lost'])
             df['Date'] = pd.to_datetime(df['Date'], format='%m/%d/%Y')
 
+    # write new data to file and return statement period start and end dates
     path = os.path.join(DATA_PATH, 'totals.csv')
     write_file(path, df)
     return start_date, end_date
@@ -104,6 +112,8 @@ def parse_bank_csv(csv, start_date, end_date):
     data = pd.read_csv(csv)
     data['Date'] = pd.to_datetime(data['Date'], format='%m/%d/%Y')
     data = data.sort_values(by='Date')
+
+    # redo the category field to match desired categories
     data.drop(['Balance', 'Category'], axis=1, inplace=True)
     data.loc[data['Description'].str.lower().str.contains('zel to albert secen|sheffield court|comcast'), 'Category'] = 'Rent'
     data.loc[data['Description'].str.lower().str.contains('capital one|chase credit'), 'Category'] = 'Credit Card'
@@ -112,6 +122,7 @@ def parse_bank_csv(csv, start_date, end_date):
     data.loc[data['Description'].str.lower().str.contains('leidos'), 'Category'] = 'Paycheck'
     data.loc[data['Category'].isna(), 'Category'] = 'Misc'
 
+    # keep only account withdrawls falling within the statement dates and save to file
     deducations = data[data['Deposits'].isna()]
     deducations = deducations[(deducations['Date'] >= start_date) & (deducations['Date'] <= end_date)]
     deducations['Amount'] = deducations['Withdrawals'].str.replace('$', '').str.replace(',', '').astype(float)
@@ -121,6 +132,7 @@ def parse_bank_csv(csv, start_date, end_date):
     path = os.path.join(DATA_PATH, 'deductions.csv')
     write_file(path, deducations)
 
+    # keep only account deposits falling within the statement dates and save to file
     additions = data[data['Withdrawals'].isna()]
     additions = additions[(additions['Date'] >= start_date) & (additions['Date'] <= end_date)]
     additions['Amount'] = additions['Deposits'].str.replace('$', '').str.replace(',', '').astype(float)
@@ -132,6 +144,10 @@ def parse_bank_csv(csv, start_date, end_date):
 
 
 def extract_bank_data():
+    '''
+    check that the bank data source files exists, parse the data, and remove
+    the data source files
+    '''
     path = os.path.join(DATA_PATH, 'bank_data')
     statement_csv = glob.glob(f'{path}/*.csv')
     statement_pdf = glob.glob(f'{path}/*.pdf')
@@ -147,14 +163,23 @@ def extract_bank_data():
 ##################################################################################
 
 def get_lookback_data(filename, n_months=None):
+    '''
+    used to collect a subset of data, looking backwards in time for a certain
+    number of months. If no number of months is provided just look at the most
+    recent month in the data.
+    '''
     path = os.path.join(DATA_PATH, filename)
     df = pd.read_csv(path)
     df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
 
+    # find the latest month and year in the existing data
     year = df.iloc[-1]['Date'].year
     month = df.iloc[-1]['Date'].month
     
     if n_months:
+        # if number of months to look back is provided, create a datetime 
+        # object and subtract the given time delta, given the desired start
+        # date
         dt = datetime(year=year, month=month, day=1)
         new_dt = dt - relativedelta(months=n_months)
         start_date = new_dt.strftime('%Y-%m-%d')
@@ -167,17 +192,23 @@ def get_lookback_data(filename, n_months=None):
 
 
 def get_spending(cum_type, n_months=0):
-    rets = {'Rent': 0, 'Credit Card': 0, 'Misc': 0}
+    rets = {'Rent': 0, 'Credit Card': 0, 'Misc': 0}   # initialize return values in dict
     subset = get_lookback_data('deductions.csv', n_months=n_months)
+
+    # sum cumulation
     if cum_type:
         group = subset.groupby(['Category'])['Amount'].sum()
+        # loop over the return keys and add sum to the return dict
         for k, _ in rets.items():
             try:
                 rets[k] = float(group[k])
             except:
                 continue
+    # average cumulation
     else:
-        categories = subset['Category'].unique().tolist()
+        categories = subset['Category'].unique().tolist()   # present categories in the desired subset of data
+        # get only the data for each category, sum over each month present in the data, then take the average
+        # of those sums to get the rolling average for each category
         for k, _ in rets.items():
             if k in categories:
                 cat_subset = subset[subset['Category'] == k]
@@ -188,6 +219,7 @@ def get_spending(cum_type, n_months=0):
 
 
 def get_totals(cum_type, n_months=0):
+    # get deposits for a 
     add_subset = get_lookback_data('additions.csv', n_months=n_months)
     add_subset = add_subset[add_subset['Category'] != 'Transfer']
     total_adds = sum(add_subset['Amount'])
@@ -198,11 +230,16 @@ def get_totals(cum_type, n_months=0):
 
 
 def get_income(cum_type, n_months=0):
+    # get the additions for the n months previous months 
     subset = get_lookback_data('additions.csv', n_months=n_months)
+    # sum
     if cum_type:
         group = subset.groupby(['Category'])['Amount'].sum()
         income = float(group['Paycheck'])
+    # average
     else:
+        # get only the income, groupby months, sum by the month and return the average between
+        # the months
         cat_subset = subset[subset['Category'] == 'Paycheck']
         cat_totals_by_month = cat_subset.groupby(pd.Grouper(key='Date', freq='ME'))['Amount'].sum()
         income = np.mean(cat_totals_by_month)    
@@ -213,6 +250,7 @@ def get_income(cum_type, n_months=0):
 def update_investment_data(input_data):
     investments_path = os.path.join(DATA_PATH, 'investments.csv')
 
+    # create a dataframe from the input data and write to file
     current_time = datetime.now()
     day = current_time.date()
     cols = ['Date', 'Amount', 'Category']
@@ -227,6 +265,8 @@ def get_total_assets():
     investments_path = os.path.join(DATA_PATH, 'investments.csv')
     totals_path = os.path.join(DATA_PATH, 'totals.csv')
 
+    # read in investment data, find the latest investment entry for each type, combine
+    # with latest bank statement and return total
     investment_df = pd.read_csv(investments_path)
     investment_df['Date'] = pd.to_datetime(investment_df['Date'], format='%Y-%m-%d')
     investments = ['etrade', 'leidos', '401k', 'cambridge']
