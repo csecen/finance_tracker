@@ -13,8 +13,10 @@ def line_chart(data: pd.DataFrame, credit: bool = True, switch: bool = True):
 
     if switch:
         background = 'white'
+        font = '#1C2525'
     else:
-        background = "#1C2525"
+        background = '#1C2525'
+        font = 'white'
 
     title = f"Overall {'Credit' if credit else 'Account'} Spend Summary "
     fig.update_layout(
@@ -22,7 +24,8 @@ def line_chart(data: pd.DataFrame, credit: bool = True, switch: bool = True):
         title_x=0.5,
         margin=dict(b=25, t=75, l=35, r=25),
         height=325,
-        paper_bgcolor=background
+        paper_bgcolor=background,
+        font=dict(color=font),
     )
 
     return fig
@@ -52,16 +55,18 @@ def pie_chart(data: pd.DataFrame,
             go.Pie(
                 labels=labels,
                 values=values,
-                textinfo="label+percent",
-                textposition="inside",
+                textinfo='label+percent',
+                textposition='inside',
                 sort=False,
-                hoverinfo="none",
+                hoverinfo='none',
             )
         ])
     if switch:
         background = 'white'
+        font = '#1C2525'
     else:
-        background = "#1C2525"
+        background = '#1C2525'
+        font = 'white'
 
 
     title = f"{'Credit' if credit else 'Account'} Summary for {date_string}"
@@ -71,18 +76,8 @@ def pie_chart(data: pd.DataFrame,
         title_x=0.5,
         margin=dict(b=25, t=75, l=35, r=25),
         height=325,
-        paper_bgcolor=background
+        paper_bgcolor=background,
+        font=dict(color=font),
     )
 
     return fig
-
-
-
-# def plot_line():
-#     # print(totals_df['Date'])
-#     # totals_df = totals_df.sort_values(by='Date')
-#     # print(len(totals_df['Date'].unique()))
-
-
-#     fig = px.line(totals_df, x='Date', y='Total', )
-#     fig.show()
