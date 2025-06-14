@@ -219,15 +219,18 @@ def get_spending(cum_type, n_months=0):
 
 
 def get_totals(cum_type, n_months=0):
-    # get deposits for a 
+    # get deposits and withdrawls from the past n months
     add_subset = get_lookback_data('additions.csv', n_months=n_months)
     add_subset = add_subset[add_subset['Category'] != 'Transfer']
     ded_subset = get_lookback_data('deductions.csv', n_months=n_months)
 
+    # sum
     if cum_type:
         cumm_adds = sum(add_subset['Amount'])
         cumm_deds = sum(ded_subset['Amount'])
+    # average
     else:
+        # group by month and sum the values within the months, then get the average over the months
         cumm_adds = np.mean(add_subset.groupby(pd.Grouper(key='Date', freq='ME')).sum()['Amount'])
         cumm_deds = np.mean(ded_subset.groupby(pd.Grouper(key='Date', freq='ME')).sum()['Amount'])
     
