@@ -6,7 +6,7 @@ import pandas as pd
 import os
 import package_root
 from src.plotting import pie_chart, line_chart
-from src.utils import extract_credit_card_data, get_spending, get_totals, get_income, extract_bank_data, update_investment_data
+from src.utils import extract_credit_card_data, get_spending, get_totals, get_income, extract_bank_data, update_investment_data, get_total_assets
 
 
 app = Dash(
@@ -25,39 +25,52 @@ bank_withdrawals_path = os.path.join(DATA_PATH, 'deductions.csv')
 bank_withdrawals_df = pd.read_csv(bank_withdrawals_path)
 bank_withdrawals_df['Date'] = pd.to_datetime(bank_withdrawals_df['Date'], format='%Y-%m-%d')
 
-def get_bank_summary():
+
+def total_assets_summary():
+    total = get_total_assets()
+
+    total_text = html.H4(
+        f'TOTAL ASSETS: {total}',
+        className='text-center text-primary p-2',
+    )
+
+    return total_text
+
+
+def get_bank_summary(summary_type, n_months):
+
+    sum_txt = 'Total' if summary_type else 'Average'
 
     rent, credit, misc = get_spending()
-    income = get_income()
+    income = get_income(summary_type, n_months)
     saved = get_totals()
     saved = round(saved, 2)
     color = 'green' if saved >= 0 else 'red'
 
-    bank_summary = html.Div([
+    summary_list = [
         html.H5([
-            html.Span('Total Monthly Income: '),
+            html.Span(f'{sum_txt} Monthly Income: '),
             html.Span(income, style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span('Total Monthly Rent: '),
+            html.Span(f'{sum_txt} Monthly Rent: '),
             html.Span(rent, style={'color': 'blue'}),
-            # children=f'Total Monthly Rent: {rent}',
         ]),
         html.H5([
-            html.Span('Total Monthly Credit Spending: '),
+            html.Span(f'{sum_txt} Monthly Credit Spending: '),
             html.Span(credit, style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span('Total Monthly Misc Spending: '),
+            html.Span(f'{sum_txt} Monthly Misc Spending: '),
             html.Span(misc, style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span('Total Monthly Savings: '),
+            html.Span(f'{sum_txt} Monthly Savings: '),
             html.Span(saved, style={'color': color}),
-        ])
-    ])
+        ]),
+    ]
 
-    return bank_summary
+    return summary_list
 
 
 """
@@ -73,7 +86,7 @@ color_mode_switch = html.Span([
         dbc.Label(className='fa fa-sun', html_for='switch'),
     ])
 
-input_form = dbc.Form(
+input_form = dbc.Form([
     dbc.Row(
         [
             dbc.Col(
@@ -89,6 +102,10 @@ input_form = dbc.Form(
                 className='me-3',
             ),
             dbc.Col(
+                dbc.FormFloating([dbc.Input(type='number', id='cambridge'), dbc.Label('Cambridge'),]),
+                className='me-3',
+            ),
+            dbc.Col(
                 dbc.Button('Submit', id='submit_investments', color='primary', className='me-1'),
                 class_name='me-3'
             ),
@@ -96,7 +113,56 @@ input_form = dbc.Form(
         className='g-3',
         align='center'
     ),
+    html.Br(),
+    dbc.Row(
+        [
+            dbc.Col(
+                dbc.FormFloating([dbc.Input(type='number', id='nasdaq'), dbc.Label('NASDAQ'),]),
+                className='me-3',
+            ),
+            dbc.Col(
+                dbc.FormFloating([dbc.Input(type='number', id='dow'), dbc.Label('DOW'),]),
+                className='me-3',
+            ),
+            dbc.Col(
+                dbc.FormFloating([dbc.Input(type='number', id='snp'), dbc.Label('S&P'),]),
+                className='me-3',
+            ),
+        ],
+        className='g-3',
+        align='center'
+    ),
+])
+
+
+spend_inputs = dbc.Stack(
+    [
+        html.Div(
+            html.Span([
+                dbc.Label('Average'),
+                dbc.Switch(id='summary_switch',
+                        value=True, 
+                        className='d-inline-block ms-2', 
+                        persistence=True),
+                dbc.Label('Total'),
+            ])
+        ),
+        html.Div(
+            dbc.Input(id='month_total', placeholder='', type='number'),
+            className='w-25'
+        ),
+        html.Div(
+            dbc.Col(dbc.Button('Submit', color='primary', id='submit_n_month'), width='auto'),
+            className='me-auto',
+        ),
+        html.Div(
+            dbc.Button('REFRESH', color='primary', outline=True, id='refresh'),
+        ),
+    ],
+    direction="horizontal",
+    gap=3,
 )
+
 
 date_pickers = dbc.Form([
     dbc.Row(
@@ -135,7 +201,7 @@ date_pickers = dbc.Form([
             ),
             dbc.Label('Month', width='auto'),
             dbc.Col(
-                dbc.Input(type='number', id='month'),
+                dbc.Input(type='number', id='month', min=1, max=12),
                 className='me-3',
                 width=2
             ),
@@ -165,21 +231,16 @@ app.layout = dbc.Container(
         dbc.Row(
             dbc.Col([
                 color_mode_switch,
+                html.Br(),
+                dbc.Button('Upload', color='primary', outline=True, id='upload'),
                 html.H2(
                     'FINANCIAL TRACKER',
                     className='text-center text-primary p-2',
                 ),
-                html.H4(
-                    'TOTAL ASSETS',
-                    className='text-center text-primary p-2',
-                ),
-                html.Div(
-                    [
-                        dbc.Button('REFRESH', color='primary', outline=True, id='refresh'),
-                    ],
-                    className="d-grid gap-2 col-6 mx-auto",
-                ),
-                # dbc.Col(dbc.Button('REFRESH', color='primary', outline=True, id='refresh'), width='auto', align='center'),
+                html.Div([
+                    total_assets_summary()
+                ],
+                id='total'),
                 html.Hr(),
             ])
         ),
@@ -191,7 +252,10 @@ app.layout = dbc.Container(
                             dbc.CardHeader('SPENDING'),
                             dbc.CardBody(
                                 [
-                                    get_bank_summary(),
+                                    spend_inputs,
+                                    html.Br(),
+                                    html.Div(id='bank_summary'),
+                                    html.Br(),
                                     date_pickers,
                                     dcc.Graph(id='spend_pie_chart', className='mb-2'),
                                     dcc.Graph(id="spend_line_chart", className="mb-2"),
@@ -220,24 +284,6 @@ app.layout = dbc.Container(
             ],
             className="ms-1",
         ),
-        # dbc.Row(
-        #     [
-        #         dbc.Col(tabs, width=12, lg=5, className="mt-4 border"),
-        #         dbc.Col(
-        #             [
-        #                 dcc.Graph(id="allocation_pie_chart", className="mb-2"),
-        #                 dcc.Graph(id="returns_chart", className="pb-4"),
-        #                 html.Hr(),
-        #                 html.Div(id="summary_table"),
-        #                 html.H6(datasource_text, className="my-2"),
-        #             ],
-        #             width=12,
-        #             lg=7,
-        #             className="pt-4",
-        #         ),
-        #     ],
-        #     className="ms-1",
-        # ), 
     ],
     fluid=True,
 )
@@ -249,21 +295,75 @@ Callbacks
 """
 
 @app.callback(
-    Output("investment_line_chart", "figure"),
+        Input('upload', 'n_clicks'),
+)
+def upload_data(upload):
+    changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+    if 'upload' in changed_id:
+        total_text = total_assets_summary()
+
+
+@app.callback(
+        Output('total', 'children'),
+        Input('refresh', 'n_clicks'),
+)
+def display_total(refresh):
+    total_text = total_assets_summary()
+
+    return total_text
+
+
+@app.callback(
+        Output('bank_summary', 'children'),
+        Output('month_total', 'value'),
+        Input('summary_switch', 'value'),
+        State('month_total', 'value'),
+        Input('refresh', 'n_clicks'),
+        Input('submit_n_month', 'n_clicks')
+)
+def display_monthly_data(summary_type, n_months, refresh, submit):
+    changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+    
+    n_months = 0 if not n_months else n_months
+    summary_list = get_bank_summary(summary_type, n_months)
+    # if 'refresh' in changed_id and n_months > 1:
+    #     n_months = n_months
+    # else:
+    #     n_months = None
+    # print()
+        # n_months = 1 if not n_months else n_months
+    # print(n_months)
+    # summary_list = get_bank_summary(summary_type)
+
+
+    return summary_list, None
+
+
+@app.callback(
+    Output('investment_line_chart', 'figure'),
     Output('investment_line_chart', 'style'),
     Output('etrade', 'value'),
     Output('retirement', 'value'),
     Output('leidos', 'value'),
+    Output('cambridge', 'value'),
+    Output('nasdaq', 'value'),
+    Output('dow', 'value'),
+    Output('snp', 'value'),
     State('etrade', 'value'),
     State('retirement', 'value'),
     State('leidos', 'value'),
+    State('cambridge', 'value'),
+    State('nasdaq', 'value'),
+    State('dow', 'value'),
+    State('snp', 'value'),
     Input('switch', 'value'),
     Input('submit_investments', 'n_clicks'),
 )
-def update_data(etrade, retirement, leidos, switch, n_clicks):
+def update_data_display(etrade, retirement, leidos, cambridge, nasdaq, dow, snp, switch, n_clicks):
 
-    data = {'etrade': etrade, 'retirement': retirement, 'leidos': leidos}
-    if etrade or retirement or leidos:
+    data = {'etrade': etrade, 'retirement': retirement, 'leidos': leidos,
+            'cambridge': cambridge, 'nasdaq': nasdaq, 'dow': dow, 'snp': snp}
+    if etrade or retirement or leidos or cambridge or nasdaq or dow or snp:
         update_investment_data(data)
     path = os.path.join(DATA_PATH, 'investments.csv')
 
@@ -273,9 +373,9 @@ def update_data(etrade, retirement, leidos, switch, n_clicks):
                                 credit=False,
                                 switch=switch)
         
-        return line_figure, {}, '', '', ''
+        return line_figure, {}, '', '', '', '', '', '', ''
     else:
-        return None, {'display': 'none'}, '', '', ''
+        return None, {'display': 'none'}, '', '', '', '', '', '', ''
 
 
 @app.callback(
@@ -284,6 +384,7 @@ def update_data(etrade, retirement, leidos, switch, n_clicks):
     Output('spend_line_chart', 'figure'),
     Output('spend_line_chart', 'style'),
     Input('submit_date', 'n_clicks'),
+    Input('refresh', 'n_clicks'),
     Input('switch', 'value'),
     Input('data_switch', 'value'),
     State('start_date', 'date'),
@@ -291,7 +392,9 @@ def update_data(etrade, retirement, leidos, switch, n_clicks):
     State('year', 'value'),
     State('month', 'value'),
 )
-def update_pie(n_clicks, switch, data_switch, start_date, end_date, year, month):
+def update_pie(n_clicks, refresh, switch, data_switch, start_date, end_date, year, month):
+    # changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+
     if n_clicks:
         if data_switch:
             df = credit_card_df
