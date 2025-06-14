@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import glob
 from datetime import datetime
@@ -53,26 +54,33 @@ def write_file(file, df):
 
 ##### Function that read and preprocess input data #####
 def extract_credit_card_data():
-    path = os.path.join(DATA_PATH, '2025-05-15_transaction_download.csv')
-    df = pd.read_csv(path)
+    path = os.path.join(DATA_PATH, 'credit_card_data')
+    cc_csv = glob.glob(f'{path}/*.csv')
 
-    # add grocery category
-    df.loc[df['Description'].str.contains('GIANT|ALDI|WEGMANS|WHOLEFDS|TRADER JOE|LIDL|HARRIS TEETER'), 'Category'] = 'Groceries'
+    if len(cc_csv) > 0:
 
-    df['Date'] = pd.to_datetime(df['Transaction Date'], format='%Y-%m-%d')
-    df.dropna(axis=0, subset=['Debit'], inplace=True)
-    df.drop(['Transaction Date', 'Posted Date', 'Card No.', 'Description', 'Credit'], axis=1, inplace=True)
- 
-    file = os.path.join(DATA_PATH, 'credit_card_data.csv')
-    # file = '../data/credit_card_data.csv'
-    if os.path.exists(file):
-        existing_data = pd.read_csv(file)
-        existing_data['Date'] = pd.to_datetime(existing_data['Date'], format='%Y-%m-%d')
-        df = pd.concat([existing_data, df])
-        # TODO: Delete file
+        df = pd.read_csv(cc_csv[0])
 
-    # delete file
-    df.to_csv(file, index=False)
+        # add grocery category
+        df.loc[df['Description'].str.contains('GIANT|ALDI|WEGMANS|WHOLEFDS|TRADER JOE|LIDL|HARRIS TEETER'), 'Category'] = 'Groceries'
+
+        df['Date'] = pd.to_datetime(df['Transaction Date'], format='%Y-%m-%d')
+        df.dropna(axis=0, subset=['Debit'], inplace=True)
+        df.drop(['Transaction Date', 'Posted Date', 'Card No.', 'Description', 'Credit'], axis=1, inplace=True)
+        df.sort_values(by='Date', inplace=True)
+    
+        file = os.path.join(DATA_PATH, 'credit_card_data.csv')
+        write_file(file, df)
+        # file = '../data/credit_card_data.csv'
+        # if os.path.exists(file):
+        #     existing_data = pd.read_csv(file)
+        #     existing_data['Date'] = pd.to_datetime(existing_data['Date'], format='%Y-%m-%d')
+        #     df = pd.concat([existing_data, df])
+        #     # TODO: Delete file
+
+        # # delete file
+        # df.to_csv(cc_csv, index=False)
+        os.remove(cc_csv[0])
 
 
 def parse_bank_pdf(pdf):
@@ -137,11 +145,18 @@ def extract_bank_data():
     statement_csv = glob.glob(f'{path}/*.csv')
     statement_pdf = glob.glob(f'{path}/*.pdf')
 
-    if len(statement_pdf) < 0 or len(statement_csv) < 0:
-        print('Error')
-    else:
+    if len(statement_pdf) > 0 and len(statement_csv) > 0:
         start_date, end_date = parse_bank_pdf(statement_pdf[0])
         parse_bank_csv(statement_csv[0], start_date, end_date)
+
+        os.remove(statement_pdf[0])
+        os.remove(statement_csv[0]) 
+
+    # if len(statement_pdf) < 0 or len(statement_csv) < 0:
+    #     print('Error')
+    # else:
+    #     start_date, end_date = parse_bank_pdf(statement_pdf[0])
+    #     parse_bank_csv(statement_csv[0], start_date, end_date)
 
 
 ##################################################################################
@@ -166,37 +181,59 @@ def get_lookback_data(filename, n_months=None):
     return subset
 
 
-def get_spending():
-    path = os.path.join(DATA_PATH, 'deductions.csv')
-    df = pd.read_csv(path)
-    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+def get_spending(cum_type, n_months=0):
+    # path = os.path.join(DATA_PATH, 'deductions.csv')
+    # df = pd.read_csv(path)
+    # df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
 
-    year = df.iloc[-1]['Date'].year
-    month = df.iloc[-1]['Date'].month
+    # year = df.iloc[-1]['Date'].year
+    # month = df.iloc[-1]['Date'].month
 
-    subset, _ = date_parser(df, year=year, month=month)
-    group = subset.groupby(['Category'])['Amount'].sum()
+    # subset, _ = date_parser(df, year=year, month=month)
+    print('n_months', n_months)
     rets = {'Rent': 0, 'Credit Card': 0, 'Misc': 0}
-    for k, _ in rets.items():
-        try:
-            rets[k] = float(group[k])
-        except:
-            continue
+    subset = get_lookback_data('deductions.csv', n_months=n_months)
+    if cum_type:
+        group = subset.groupby(['Category'])['Amount'].sum()
+        for k, _ in rets.items():
+            try:
+                rets[k] = float(group[k])
+            except:
+                continue
+    else:
+        # print('in else')
+        categories = subset['Category'].unique().tolist()
+        for k, _ in rets.items():
+            if k in categories:
+            # try:
+                cat_subset = subset[subset['Category'] == k]
+                cat_totals_by_month = cat_subset.groupby(pd.Grouper(key='Date', freq='ME'))['Amount'].sum()
+                rets[k] = np.mean(cat_totals_by_month)
+            # except:
+            #     print()
+            #     continue
+
+        # group = subset.groupby(['Category'])['Amount'].mean()
+    # group = subset.groupby(['Category'])['Amount'].sum()
+    
+    
+
+    print(rets)
 
     return tuple(rets.values())
 
 
-def get_totals():
-    # TODO: Update to exclude things like transfers
-    path = os.path.join(DATA_PATH, 'totals.csv')
-    totals_df = pd.read_csv(path)
+def get_totals(cum_type, n_months=0):
+    add_subset = get_lookback_data('additions.csv', n_months=n_months)
+    add_subset = add_subset[add_subset['Category'] != 'Transfer']
+    total_adds = sum(add_subset['Amount'])
 
-    latest = totals_df.iloc[-1]
+    ded_subset = get_lookback_data('deductions.csv', n_months=n_months)
+    total_deds = sum(ded_subset['Amount'])
+    return total_adds - total_deds
 
-    return latest['Added'] - latest['Lost']
 
-
-def get_income(cum_type, n_months):
+def get_income(cum_type, n_months=0):
     # path = os.path.join(DATA_PATH, 'additions.csv')
     # df = pd.read_csv(path)
     # df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
@@ -213,9 +250,11 @@ def get_income(cum_type, n_months):
     # subset.groupby(['Date'])['Amount'].sum()
     if cum_type:
         group = subset.groupby(['Category'])['Amount'].sum()
+        income = float(group['Paycheck'])
     else:
-        group = subset.groupby(['Category'])['Amount'].mean()
-    income = float(group['Paycheck'])
+        cat_subset = subset[subset['Category'] == 'Paycheck']
+        cat_totals_by_month = cat_subset.groupby(pd.Grouper(key='Date', freq='ME'))['Amount'].sum()
+        income = np.mean(cat_totals_by_month)    
 
     return income
 
@@ -228,6 +267,7 @@ def update_investment_data(input_data):
     cols = ['Date', 'Amount', 'Category']
     data = [[day, v, k] for k, v in input_data.items() if v]
     df = pd.DataFrame(data, columns=cols)
+    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
 
     write_file(investments_path, df)
 
