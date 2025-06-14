@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import glob
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from pypdf import PdfReader
 import re
 
@@ -41,6 +42,15 @@ def date_parser(data: pd.DataFrame,
     return subset, date_string
 
 
+def write_file(file, df):
+    if os.path.exists(file):
+        existing_data = pd.read_csv(file)
+        existing_data['Date'] = pd.to_datetime(existing_data['Date'], format='%Y-%m-%d')
+        df = pd.concat([existing_data, df])
+    
+    df.to_csv(file, index=False)
+
+
 ##### Function that read and preprocess input data #####
 def extract_credit_card_data():
     path = os.path.join(DATA_PATH, '2025-05-15_transaction_download.csv')
@@ -62,15 +72,6 @@ def extract_credit_card_data():
         # TODO: Delete file
 
     # delete file
-    df.to_csv(file, index=False)
-
-
-def write_file(file, df):
-    if os.path.exists(file):
-        existing_data = pd.read_csv(file)
-        existing_data['Date'] = pd.to_datetime(existing_data['Date'], format='%Y-%m-%d')
-        df = pd.concat([existing_data, df])
-    
     df.to_csv(file, index=False)
 
 
@@ -143,6 +144,28 @@ def extract_bank_data():
         parse_bank_csv(statement_csv[0], start_date, end_date)
 
 
+##################################################################################
+
+def get_lookback_data(filename, n_months=None):
+    path = os.path.join(DATA_PATH, filename)
+    df = pd.read_csv(path)
+    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+
+    year = df.iloc[-1]['Date'].year
+    month = df.iloc[-1]['Date'].month
+    
+    if n_months:
+        dt = datetime(year=year, month=month, day=1)
+        new_dt = dt - relativedelta(months=n_months)
+        start_date = new_dt.strftime('%Y-%m-%d')
+
+        subset, _ = date_parser(df, start_date=start_date)
+    else:
+        subset, _ = date_parser(df, year=year, month=month)
+
+    return subset
+
+
 def get_spending():
     path = os.path.join(DATA_PATH, 'deductions.csv')
     df = pd.read_csv(path)
@@ -162,8 +185,6 @@ def get_spending():
 
     return tuple(rets.values())
 
-    # return rent, credit, misc
-
 
 def get_totals():
     # TODO: Update to exclude things like transfers
@@ -175,16 +196,25 @@ def get_totals():
     return latest['Added'] - latest['Lost']
 
 
-def get_income():
-    path = os.path.join(DATA_PATH, 'additions.csv')
-    df = pd.read_csv(path)
-    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+def get_income(cum_type, n_months):
+    # path = os.path.join(DATA_PATH, 'additions.csv')
+    # df = pd.read_csv(path)
+    # df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
 
-    year = df.iloc[-1]['Date'].year
-    month = df.iloc[-1]['Date'].month
+    # year = df.iloc[-1]['Date'].year
+    # month = df.iloc[-1]['Date'].month
 
-    subset, _ = date_parser(df, year=year, month=month)
-    group = subset.groupby(['Category'])['Amount'].sum()
+    # subset, _ = date_parser(df, year=year, month=month)
+
+    subset = get_lookback_data('additions.csv', n_months=n_months)
+    # subset
+    # subset = subset[subset['Category'] != 'Transfer']
+    # subset
+    # subset.groupby(['Date'])['Amount'].sum()
+    if cum_type:
+        group = subset.groupby(['Category'])['Amount'].sum()
+    else:
+        group = subset.groupby(['Category'])['Amount'].mean()
     income = float(group['Paycheck'])
 
     return income
@@ -200,6 +230,23 @@ def update_investment_data(input_data):
     df = pd.DataFrame(data, columns=cols)
 
     write_file(investments_path, df)
+
+
+def get_total_assets():
+    investments_path = os.path.join(DATA_PATH, 'investments.csv')
+    totals_path = os.path.join(DATA_PATH, 'totals.csv')
+
+    investment_df = pd.read_csv(investments_path)
+    investment_df['Date'] = pd.to_datetime(investment_df['Date'], format='%Y-%m-%d')
+    investments = ['etrade', 'leidos', '401k', 'cambridge']
+    grouping = investment_df.loc[investment_df.groupby('Category').Date.idxmax()]
+    total_investments = grouping[grouping['Category'].isin(investments)]['Amount'].sum()
+
+    bank_df = pd.read_csv(totals_path)
+    bank_df['Date'] = pd.to_datetime(bank_df['Date'], format='%Y-%m-%d')
+    bank_total = bank_df.iloc[-1]['Total']
+
+    return total_investments+bank_total
 
     
     
