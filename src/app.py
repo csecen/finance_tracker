@@ -41,32 +41,32 @@ def get_bank_summary(summary_type, n_months):
 
     sum_txt = 'Total' if summary_type else 'Average'
 
-    rent, credit, misc = get_spending()
+    rent, credit, misc = get_spending(summary_type, n_months)
     income = get_income(summary_type, n_months)
-    saved = get_totals()
-    saved = round(saved, 2)
+    saved = get_totals(summary_type, n_months)
     color = 'green' if saved >= 0 else 'red'
+    print(misc)
 
     summary_list = [
         html.H5([
             html.Span(f'{sum_txt} Monthly Income: '),
-            html.Span(income, style={'color': 'blue'}),
+            html.Span(round(income, 2), style={'color': 'blue'}),
         ]),
         html.H5([
             html.Span(f'{sum_txt} Monthly Rent: '),
-            html.Span(rent, style={'color': 'blue'}),
+            html.Span(round(rent, 2), style={'color': 'blue'}),
         ]),
         html.H5([
             html.Span(f'{sum_txt} Monthly Credit Spending: '),
-            html.Span(credit, style={'color': 'blue'}),
+            html.Span(round(credit, 2), style={'color': 'blue'}),
         ]),
         html.H5([
             html.Span(f'{sum_txt} Monthly Misc Spending: '),
-            html.Span(misc, style={'color': 'blue'}),
+            html.Span(round(misc, 2), style={'color': 'blue'}),
         ]),
         html.H5([
             html.Span(f'{sum_txt} Monthly Savings: '),
-            html.Span(saved, style={'color': color}),
+            html.Span(round(saved, 2), style={'color': color}),
         ]),
     ]
 
@@ -300,7 +300,9 @@ Callbacks
 def upload_data(upload):
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
     if 'upload' in changed_id:
-        total_text = total_assets_summary()
+        print('in here')
+        extract_credit_card_data()
+        extract_bank_data()
 
 
 @app.callback(
