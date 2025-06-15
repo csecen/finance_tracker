@@ -40,6 +40,7 @@ def total_assets_summary():
 def get_bank_summary(summary_type, n_months):
 
     sum_txt = 'Total' if summary_type else 'Average'
+    month_txt = f'{n_months} Month' if n_months>0 else 'Monthly'
 
     rent, credit, misc = get_spending(summary_type, n_months)
     income = get_income(summary_type, n_months)
@@ -48,23 +49,23 @@ def get_bank_summary(summary_type, n_months):
 
     summary_list = [
         html.H5([
-            html.Span(f'{sum_txt} Monthly Income: '),
+            html.Span(f'{month_txt} {sum_txt} Income: '),
             html.Span(round(income, 2), style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span(f'{sum_txt} Monthly Rent: '),
+            html.Span(f'{month_txt} {sum_txt} Rent: '),
             html.Span(round(rent, 2), style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span(f'{sum_txt} Monthly Credit Spending: '),
+            html.Span(f'{month_txt} {sum_txt} Credit Spending: '),
             html.Span(round(credit, 2), style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span(f'{sum_txt} Monthly Misc Spending: '),
+            html.Span(f'{month_txt} {sum_txt} Misc Spending: '),
             html.Span(round(misc, 2), style={'color': 'blue'}),
         ]),
         html.H5([
-            html.Span(f'{sum_txt} Monthly Savings: '),
+            html.Span(f'{month_txt} {sum_txt} Savings: '),
             html.Span(round(saved, 2), style={'color': color}),
         ]),
     ]
