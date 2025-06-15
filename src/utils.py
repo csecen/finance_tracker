@@ -277,7 +277,7 @@ def get_total_assets():
     # with latest bank statement and return total
     investment_df = pd.read_csv(investments_path)
     investment_df['Date'] = pd.to_datetime(investment_df['Date'], format='%Y-%m-%d')
-    investments = ['etrade', 'leidos', '401k', 'cambridge']
+    investments = ['etrade', 'leidos', 'retirement', 'cambridge']
     grouping = investment_df.loc[investment_df.groupby('Category').Date.idxmax()]
     total_investments = grouping[grouping['Category'].isin(investments)]['Amount'].sum()
 

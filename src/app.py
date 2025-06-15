@@ -35,7 +35,7 @@ def total_assets_summary():
     total = get_total_assets()
 
     total_text = html.H4(
-        f'TOTAL ASSETS: {total}',
+        f'TOTAL ASSETS: {round(total, 2)}',
         className='text-center text-primary p-2',
     )
 
