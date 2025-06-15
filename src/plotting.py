@@ -7,10 +7,14 @@ from src.utils import date_parser
 
 
 def line_chart(data: pd.DataFrame, credit: bool = True, switch: bool = True):
-    y = 'Debit' if credit else 'Amount'
+    '''
+    Plot the line chart for the given data
+    '''
+    y = 'Debit' if credit else 'Amount'   # dynamically change title text
 
     fig = px.line(data, x='Date', y=y, color='Category')
 
+    # change background and text color based on selected light or dark mode
     if switch:
         background = 'white'
         font = '#1C2525'
@@ -38,7 +42,11 @@ def pie_chart(data: pd.DataFrame,
               month: int = None,
               switch: bool = True,
               credit: bool = True):
+    '''
+    Plot the pie graph for the selected data source based on the selected dates
+    '''
 
+    # get only a subset of the data based on the selected dates
     subset, date_string = date_parser(data,
                                       start_date,
                                       end_date,
@@ -61,6 +69,8 @@ def pie_chart(data: pd.DataFrame,
                 hoverinfo='none',
             )
         ])
+    
+    # change background and text color based on selected light or dark mode
     if switch:
         background = 'white'
         font = '#1C2525'
@@ -68,7 +78,7 @@ def pie_chart(data: pd.DataFrame,
         background = '#1C2525'
         font = 'white'
 
-
+    # Dynamically change title based on data source
     title = f"{'Credit' if credit else 'Account'} Summary for {date_string}"
 
     fig.update_layout(
