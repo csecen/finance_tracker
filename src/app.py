@@ -14,7 +14,8 @@ app = Dash(
     external_stylesheets=[dbc.themes.LITERA, dbc.icons.FONT_AWESOME],
 )
 
-#  make dataframe from  spreadsheet:
+##### Data Import #####
+
 DATA_PATH = os.path.join(package_root._root, 'data')
 
 credit_card_data_path = os.path.join(DATA_PATH, 'credit_card_data.csv')
@@ -25,8 +26,12 @@ bank_withdrawals_path = os.path.join(DATA_PATH, 'deductions.csv')
 bank_withdrawals_df = pd.read_csv(bank_withdrawals_path)
 bank_withdrawals_df['Date'] = pd.to_datetime(bank_withdrawals_df['Date'], format='%Y-%m-%d')
 
+##### Helper Functions #####
 
 def total_assets_summary():
+    '''
+    Get the total value of all assets and add this value to an H4
+    '''
     total = get_total_assets()
 
     total_text = html.H4(
@@ -38,14 +43,19 @@ def total_assets_summary():
 
 
 def get_bank_summary(summary_type, n_months):
+    '''
+    Get bank summary for the spending and savings to be displayed
+    '''
 
+    # dynamically change output text based on input parameters
     sum_txt = 'Total' if summary_type else 'Average'
     month_txt = f'{n_months} Month' if n_months>0 else 'Monthly'
 
+    # collect data
     rent, credit, misc = get_spending(summary_type, n_months)
     income = get_income(summary_type, n_months)
     saved = get_totals(summary_type, n_months)
-    color = 'green' if saved >= 0 else 'red'
+    color = 'green' if saved >= 0 else 'red'   # used to indicate positive savings
 
     summary_list = [
         html.H5([
@@ -72,11 +82,9 @@ def get_bank_summary(summary_type, n_months):
 
     return summary_list
 
+##### Dash Component Setup #####
 
-"""
-==========================================================================
-Mode Switcher
-"""
+# light and dark mode switch
 color_mode_switch = html.Span([
         dbc.Label(className='fa fa-moon', html_for='switch'),
         dbc.Switch(id='switch',
@@ -86,6 +94,7 @@ color_mode_switch = html.Span([
         dbc.Label(className='fa fa-sun', html_for='switch'),
     ])
 
+# investment and stock input form
 input_form = dbc.Form([
     dbc.Row(
         [
@@ -134,7 +143,7 @@ input_form = dbc.Form([
     ),
 ])
 
-
+# Spend and save summary input fields
 spend_inputs = dbc.Stack(
     [
         html.Div(
@@ -163,7 +172,7 @@ spend_inputs = dbc.Stack(
     gap=3,
 )
 
-
+# Date picker for bank or credit card data plots
 date_pickers = dbc.Form([
     dbc.Row(
         [
@@ -220,11 +229,7 @@ date_pickers = dbc.Form([
     ])
 ])
 
-
-"""
-===========================================================================
-Main Layout
-"""
+##### Main Layout #####
 
 app.layout = dbc.Container(
     [
@@ -288,16 +293,15 @@ app.layout = dbc.Container(
     fluid=True,
 )
 
-
-"""
-==========================================================================
-Callbacks
-"""
+##### Callbacks #####
 
 @app.callback(
         Input('upload', 'n_clicks'),
 )
 def upload_data(upload):
+    '''
+    Upload bank and credit card data files when upload function is pressed
+    '''
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
     if 'upload' in changed_id:
         print('in here')
@@ -310,6 +314,9 @@ def upload_data(upload):
         Input('refresh', 'n_clicks'),
 )
 def display_total(refresh):
+    '''
+    Refresh the total assest summary when the refresh button is pressed
+    '''
     total_text = total_assets_summary()
 
     return total_text
@@ -324,6 +331,11 @@ def display_total(refresh):
         Input('submit_n_month', 'n_clicks')
 )
 def display_monthly_data(summary_type, n_months, refresh, submit):
+    '''
+    Display spend and save summary when a monthly lookback is selected, if
+    the display type is switched between average and total, or when the
+    refresh button is clicked
+    '''
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
     
     n_months = 0 if not n_months else n_months
@@ -353,7 +365,12 @@ def display_monthly_data(summary_type, n_months, refresh, submit):
     Input('submit_investments', 'n_clicks'),
 )
 def update_data_display(etrade, retirement, leidos, cambridge, nasdaq, dow, snp, switch, n_clicks):
+    '''
+    Update the investments and stock data file when the investments submit
+    button is selected and a value is present in one of those fields.
 
+    Only display the plot if the investment file exists
+    '''
     data = {'etrade': etrade, 'retirement': retirement, 'leidos': leidos,
             'cambridge': cambridge, 'nasdaq': nasdaq, 'dow': dow, 'snp': snp}
     if etrade or retirement or leidos or cambridge or nasdaq or dow or snp:
@@ -386,6 +403,11 @@ def update_data_display(etrade, retirement, leidos, cambridge, nasdaq, dow, snp,
     State('month', 'value'),
 )
 def update_pie(n_clicks, refresh, switch, data_switch, start_date, end_date, year, month):
+    '''
+    Display the bank or credit card summary plots based on input dates and
+    update the plots based on the color mode selected or if the refresh button
+    was selected.  
+    '''
     if n_clicks:
         if data_switch:
             df = credit_card_df
