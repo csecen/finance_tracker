@@ -126,11 +126,11 @@ input_form = dbc.Form([
     dbc.Row(
         [
             dbc.Col(
-                dbc.FormFloating([dbc.Input(type='number', id='nasdaq'), dbc.Label('NASDAQ'),]),
+                dbc.FormFloating([dbc.Input(type='number', id='dow'), dbc.Label('DOW'),]),
                 className='me-3',
             ),
             dbc.Col(
-                dbc.FormFloating([dbc.Input(type='number', id='dow'), dbc.Label('DOW'),]),
+                dbc.FormFloating([dbc.Input(type='number', id='nasdaq'), dbc.Label('NASDAQ'),]),
                 className='me-3',
             ),
             dbc.Col(
@@ -351,20 +351,20 @@ def display_monthly_data(summary_type, n_months, refresh, submit):
     Output('retirement', 'value'),
     Output('leidos', 'value'),
     Output('cambridge', 'value'),
-    Output('nasdaq', 'value'),
     Output('dow', 'value'),
+    Output('nasdaq', 'value'),
     Output('snp', 'value'),
     State('etrade', 'value'),
     State('retirement', 'value'),
     State('leidos', 'value'),
     State('cambridge', 'value'),
-    State('nasdaq', 'value'),
     State('dow', 'value'),
+    State('nasdaq', 'value'),
     State('snp', 'value'),
     Input('switch', 'value'),
     Input('submit_investments', 'n_clicks'),
 )
-def update_data_display(etrade, retirement, leidos, cambridge, nasdaq, dow, snp, switch, n_clicks):
+def update_data_display(etrade, retirement, leidos, cambridge, dow, nasdaq, snp, switch, n_clicks):
     '''
     Update the investments and stock data file when the investments submit
     button is selected and a value is present in one of those fields.
