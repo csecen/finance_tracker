@@ -1,0 +1,19 @@
+[project]
+name = "finance_tracker"
+version = "0.1.0"
+description = "Application used to track spending, savings, and invest portfolio"
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "dash",
+    "dash-bootstrap-components",
+    "dash_bootstrap_templates",
+    "ipykernel",
+    "ipython",
+    "nbformat",
+    "package-root",
+    "pandas",
+    "pypdf",
+    "tqdm",
+]
