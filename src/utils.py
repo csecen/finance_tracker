@@ -94,7 +94,7 @@ def parse_bank_pdf(pdf):
         # search for the balance summary for the statement period. This
         # contains total value in the account, total added, and total
         # deducted
-        summary = re.search(r'Balance Summary[\S\s]*Ending\nbalance([\S\s]*)Average monthly', content)
+        summary = re.search(r'Balance Summary[\S\s]*Ending *\nbalance([\S\s]*)Average monthly', content)
         if summary:
             totals = summary.group(1).replace(',','').strip().split(' ')[1:]
             totals = [end_date] + totals[-1:] + totals[:-1]   # combine into list to be converted to df
@@ -110,33 +110,34 @@ def parse_bank_pdf(pdf):
 
 def parse_bank_csv(csv, start_date, end_date):
     data = pd.read_csv(csv)
-    data['Date'] = pd.to_datetime(data['Date'], format='%m/%d/%Y')
+    data['Date'] = pd.to_datetime(data['Transaction Date'], format='%Y-%m-%d')
     data = data.sort_values(by='Date')
 
     # redo the category field to match desired categories
-    data.drop(['Balance', 'Category'], axis=1, inplace=True)
-    data.loc[data['Description'].str.lower().str.contains('zel to albert secen|sheffield court|comcast'), 'Category'] = 'Rent'
-    data.loc[data['Description'].str.lower().str.contains('capital one|chase credit'), 'Category'] = 'Credit Card'
-    data.loc[data['Description'].str.lower().str.contains('drexel'), 'Category'] = 'Tuition'
-    data.loc[data['Description'].str.lower().str.contains('transfer'), 'Category'] = 'Transfer'
-    data.loc[data['Description'].str.lower().str.contains('leidos'), 'Category'] = 'Paycheck'
+    data.drop(['Balance'], axis=1, inplace=True)
+    data.loc[data['Transaction Description'].str.lower().str.contains('zel to albert secen|sheffield court|comcast'), 'Category'] = 'Rent'
+    data.loc[data['Transaction Description'].str.lower().str.contains('capital one|chase credit'), 'Category'] = 'Credit Card'
+    data.loc[data['Transaction Description'].str.lower().str.contains('drexel'), 'Category'] = 'Tuition'
+    data.loc[data['Transaction Description'].str.lower().str.contains('transfer'), 'Category'] = 'Transfer'
+    data.loc[data['Transaction Description'].str.lower().str.contains('leidos'), 'Category'] = 'Paycheck'
     data.loc[data['Category'].isna(), 'Category'] = 'Misc'
 
     # keep only account withdrawls falling within the statement dates and save to file
-    deducations = data[data['Deposits'].isna()]
+    deducations = data[data['Transaction Amount'].str.contains('-')]
+    # deducations = data[data['Deposits'].isna()]
     deducations = deducations[(deducations['Date'] >= start_date) & (deducations['Date'] <= end_date)]
-    deducations['Amount'] = deducations['Withdrawals'].str.replace('$', '').str.replace(',', '').astype(float)
-    deducations.drop(['Withdrawals', 'Deposits', 'Description'], axis=1, inplace=True)
+    deducations['Amount'] = deducations['Transaction Amount'].str.replace('- ', '').str.replace('$', '').str.replace(',', '').astype(float)
+    deducations.drop(['Transaction Date', 'Transaction Description', 'Transaction Amount'], axis=1, inplace=True)
     deducations = deducations[['Date', 'Amount', 'Category']]
 
     path = os.path.join(DATA_PATH, 'deductions.csv')
     write_file(path, deducations)
 
     # keep only account deposits falling within the statement dates and save to file
-    additions = data[data['Withdrawals'].isna()]
+    additions = data[~data['Transaction Amount'].str.contains('-')]
     additions = additions[(additions['Date'] >= start_date) & (additions['Date'] <= end_date)]
-    additions['Amount'] = additions['Deposits'].str.replace('$', '').str.replace(',', '').astype(float)
-    additions.drop(['Withdrawals', 'Deposits', 'Description'], axis=1, inplace=True)
+    additions['Amount'] = additions['Transaction Amount'].str.replace('+ ', '').str.replace('$', '').str.replace(',', '').astype(float)
+    additions.drop(['Transaction Date', 'Transaction Description', 'Transaction Amount'], axis=1, inplace=True)
     additions = additions[['Date', 'Amount', 'Category']]
 
     path = os.path.join(DATA_PATH, 'additions.csv')
@@ -151,6 +152,9 @@ def extract_bank_data():
     path = os.path.join(DATA_PATH, 'bank_data')
     statement_csv = glob.glob(f'{path}/*.csv')
     statement_pdf = glob.glob(f'{path}/*.pdf')
+
+    print(statement_csv)
+    print(statement_pdf)
 
     if len(statement_pdf) > 0 and len(statement_csv) > 0:
         start_date, end_date = parse_bank_pdf(statement_pdf[0])
